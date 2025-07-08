@@ -1,0 +1,56 @@
+name: K66_BOT
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  full_replace:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone upstream 24.10-nss into clean folder
+        run: |
+          echo "Cloning upstream..."
+          git clone --depth=1 --branch 24.10-nss https://github.com/qosmio/openwrt-ipq.git upstream_tmp
+          cd upstream_tmp
+
+          echo "Setting Git identity..."
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "Adding your fork as remote..."
+          git remote add fork https://x-access-token:${{ secrets.RUNNER_PAT }}@github.com/${{ github.repository }}.git
+          git fetch fork
+
+          echo "Creating clean branch K66_AW1000..."
+          git checkout -B K66_AW1000
+
+      - name: Remove upstream yml files
+        run: |
+          cd upstream_tmp
+
+          echo "Removing .github folder from upstream..."
+          rm -rf .github
+          rm README.md
+          rm -rf nss-setup
+
+          echo "Cloning RUNNER repo..."
+          git clone --depth=1 https://github.com/NuhaHumaira/RUNNER.git runner_tmp
+
+          echo "Restoring your custom files..."
+          mkdir -p .github/workflows
+          test -f runner_tmp/.github/workflows/RUNNER.yml && cp runner_tmp/.github/workflows/RUNNER.yml .github/workflows/
+          test -f runner_tmp/.github/workflows/RUNNER_BOT.yml && cp runner_tmp/.github/workflows/RUNNER_BOT.yml .github/workflows/
+          test -f runner_tmp/AW1000.seed && cp runner_tmp/AW1000.seed .
+          test -f runner_tmp/feeds.conf.default && cp runner_tmp/feeds.conf.default .
+          test -f runner_tmp/include/version.mk && cp runner_tmp/include/version.mk include/
+          rm -rf runner_tmp
+
+      - name: Commit and force push to K66_AW1000
+        run: |
+          cd upstream_tmp
+          git add .
+          git commit -m "🔥 Full clean sync from upstream 24.10-nss" || echo "No changes"
+          git push fork K66_AW1000 --force
